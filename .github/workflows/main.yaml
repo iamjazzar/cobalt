@@ -76,7 +76,7 @@ jobs:
       includes: ${{ steps.set-includes.outputs.includes }}
       on_device_test: ${{ steps.set-on-device-test.outputs.on_device_test }}
       on_host_test: ${{ steps.set-on-host-test.outputs.on_host_test }}
-  # Runs Cobalt CI workflow.
+  # Runs builds.
   build:
     needs: [docker-image, build-matrix]
     runs-on: [self-hosted, linux, X64]
@@ -116,7 +116,7 @@ jobs:
         uses: ./.github/actions/upload_nightly
       - name: On-device Test
         if: ${{ matrix.config == 'devel' && needs.build-matrix.outputs.on_device_test == 'true' }}
-        uses: ./.github/actions/on_device_test
+        uses: ./.github/actions/upload_test_files
 
   # Runs on-host integration and unit tests.
   on-host-test:
