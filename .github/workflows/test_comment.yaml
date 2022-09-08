@@ -1,16 +1,57 @@
-name: test_comment
+name: On device tests
 on:
-  issue_comment:                                     
-    types: [created]
+  issue_comment:
+    types: [ created, edited ]
 
 jobs:
- test1:
-   if: contains(github.event.comment.body, '/test')
-   runs-on: [ubuntu-latest]
-   steps:
-     - name: say hello
-       run: |
-         echo say hello
-     - name: test
-       run: |
-         echo test
+  initialize:
+    name: Initialize PR status
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      github.event_name == 'issue_comment' &&
+      github.event.comment.body == '/run_test_labs' &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    outputs:
+      head_sha: ${{ steps.comment-branch.outputs.head_sha }}
+    steps:
+      - name: Get PR details
+        uses: xt0rted/pull-request-comment-branch@v1
+        id: comment-branch
+
+      - name: Set commit status as pending
+        uses: myrotvorets/set-commit-status-action@master
+        with:
+          sha: ${{ steps.comment-branch.outputs.head_sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: pending
+
+  CI:
+    needs: initialize
+    uses: ./.github/workflows/main_comment.yaml
+    permissions:
+      packages: write
+    with:
+      platform: $GITHUB_WORKFLOW
+      run_test_labs: true
+
+  finalize:
+    name: Finalize PR status
+    runs-on: ubuntu-latest
+    needs: [CI, initialize]
+    if: |
+      always() &&
+      (
+        needs.initialize.result == 'success' ||
+        needs.initialize.result == 'pending'
+      )
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@master
+        with:
+          sha: ${{ needs.initialize.outputs.head_sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: "${{ needs.CI.result }}"

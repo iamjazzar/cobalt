@@ -1,0 +1,61 @@
+# Reusable Cobalt CI workflow.
+
+name: main
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: 'Cobalt platform.'
+        required: true
+        type: string
+      run_test_labs:
+        description: 'Whether to run test labs or not.'
+        required: true
+        default: false
+        type: boolean
+
+# Global env vars.
+env:
+  REGISTRY: ghcr.io
+  IPV6_AVAILABLE: 0
+  LANG: en_US.UTF-8
+  IS_BUILDBOT_DOCKER: 1
+  IS_CI: 1
+  IS_DOCKER: 1
+  NINJA_STATUS: '[%e sec | %f/%t %u remaining | %c/sec | j%r]'
+  SCCACHE: 1
+  SCCACHE_GCS_BUCKET: cobalt-actions-devel-sccache-linux
+  SCCACHE_GCS_OAUTH_URL: http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+  SCCACHE_GCS_RW_MODE: READ_WRITE
+  SCCACHE_IDLE_TIMEOUT: 0 # prevent sccache server from shutting down after long idle.
+  STARBOARD_TOOLCHAINS_DIR: /root/starboard-toolchains
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Inside build"
+        shell: bash
+
+  # Runs on-device tests.
+  on-device-test:
+    if: ${{ inputs.run_test_labs }}
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Inside on-device-test"
+          echo "${{ inputs.run_test_labs }}"
+          exit 1
+        shell: bash
+
+  # Runs on-host integration and unit tests.
+  on-host-test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Inside on-host-test"
+        shell: bash
