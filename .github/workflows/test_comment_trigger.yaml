@@ -1,0 +1,30 @@
+name: On device tests (comment trigger)
+on:
+  pull_request:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  initialize:
+    runs-on: ubuntu-latest
+    name: Check for Test Labs trigger
+    outputs:
+      run_test_labs: ${{ steps.check.outputs.triggered }}
+    steps:
+      - uses: khan/pull-request-comment-trigger@v1.1.0
+        id: check
+        with:
+          trigger: '/run_test_labs_comments'
+          reaction: rocket
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
+  CI:
+    needs: initialize
+    uses: ./.github/workflows/main_comment.yaml
+    permissions:
+      packages: write
+    with:
+      platform: $GITHUB_WORKFLOW
+      run_test_labs: ${{ needs.initialize.outputs.run_test_labs == 'true' }}
