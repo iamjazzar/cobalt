@@ -1,16 +1,28 @@
-name: test_labeled
+name: On device tests (label)
 on:
   pull_request:
     types:
       - labeled
 jobs:
-  test1:
-    if: github.event.label.name == 'runtest'
+  initialize:
+    name: Cleaning up the PR
+    if: github.event.label.name == 'test_labs'
     runs-on: [ubuntu-latest]
     steps:
-      - name: say hello
+      - name: Remove label
         run: |
-          echo say hello
-      - name: test
-        run: |
-          echo test
+          curl \
+            -X DELETE \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.pull_request.base.repo.url }}/issues/${{ github.event.number }}/labels/${{ github.event.label.name }}
+        shell: bash
+
+  CI:
+    needs: initialize
+    uses: ./.github/workflows/main_comment.yaml
+    permissions:
+      packages: write
+    with:
+      platform: $GITHUB_WORKFLOW
+      run_test_labs: true
