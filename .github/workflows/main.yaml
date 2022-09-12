@@ -112,9 +112,31 @@ jobs:
       - name: Upload Nightly Artifacts
         if: ${{ contains(github.workflow, '_nightly') && matrix.config != 'debug' }}
         uses: ./.github/actions/upload_nightly_artifacts
-      - name: Upload Test Artifacts
+      - name: Upload On Device Test Artifacts
         if: ${{ matrix.config == 'devel' && needs.build-matrix.outputs.on_device_test == 'true' && (contains(github.workflow, '_nightly') || github.event.label.name == 'runtest' || github.event_name == 'push') }}
         uses: ./.github/actions/upload_test_artifacts
+        with:
+          type: ondevice
+      - name: Upload On Host Test Artifacts
+        if: ${{ matrix.config == 'devel' && needs.build-matrix.outputs.on_host_test == 'true' }}
+        uses: ./.github/actions/upload_test_artifacts
+        with:
+          type: onhost
+      # Build bootloader if neccessary.
+      - name: Set bootloader config
+        if: needs.build-matrix.outputs.on_host_test_bootloader != 'null'
+        run: echo "COBALT_BOOTLOADER=${{needs.build-matrix.outputs.on_host_test_bootloader}}" >> $GITHUB_ENV
+      - name: Bootloader GN
+        if: needs.build-matrix.outputs.on_host_test_bootloader != 'null'
+        uses: ./.github/actions/gn
+      - name: Build Bootloader
+        if: needs.build-matrix.outputs.on_host_test_bootloader != 'null'
+        uses: ./.github/actions/build
+      - name: Upload Bootloader On Host Test Artifacts
+        if: ${{ needs.build-matrix.outputs.on_host_test_bootloader != 'null' && matrix.config == 'devel' && needs.build-matrix.outputs.on_host_test == 'true' }}
+        uses: ./.github/actions/upload_test_artifacts
+        with:
+          type: onhost
 
   # Runs on-device tests.
   on-device-test:
@@ -137,7 +159,7 @@ jobs:
 
   # Runs on-host integration and unit tests.
   on-host-test:
-    needs: [docker-image, build-matrix]
+    needs: [docker-image, build-matrix, build]
     if: needs.build-matrix.outputs.on_host_test == 'true'
     runs-on: [self-hosted, linux, X64]
     name: ${{matrix.platform}}_${{matrix.shard}}_test
@@ -154,40 +176,13 @@ jobs:
       # For some reason tests complaining about HOME set to /github/home
       # with permission denied error.
       HOME: /root
+      COBALT_BOOTLOADER: ${{needs.build-matrix.outputs.on_host_test_bootloader}}
     steps:
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v0
       - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
-      - name: GN
-        uses: ./.github/actions/gn
-      - name: Build Cobalt
-        uses: ./.github/actions/build
-      # Build bootloader if neccessary.
-      - name: Set bootloader config
-        if: needs.build-matrix.outputs.on_host_test_bootloader != 'null'
-        run: echo "COBALT_BOOTLOADER=${{needs.build-matrix.outputs.on_host_test_bootloader}}" >> $GITHUB_ENV
-      - name: GN
-        if: needs.build-matrix.outputs.on_host_test_bootloader != 'null'
-        uses: ./.github/actions/gn
-      - name: Build Cobalt
-        if: needs.build-matrix.outputs.on_host_test_bootloader != 'null'
-        uses: ./.github/actions/build
-      # TODO - Move 'Run Tests' to a separate action.
-      - name: Set Env Variables
-        run: |
-          echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
       - name: Run Tests
-        shell: bash
-        run: |
-          loader_args=''
-          if [ ! -z ${COBALT_BOOTLOADER+x} ]; then
-            loader_args="--loader_platform ${COBALT_BOOTLOADER} --loader_config ${{matrix.config}}"
-          fi
-          if [[ "${{matrix.shard}}" == 'integration' ]]; then
-            xvfb-run -a --server-args="-screen 0 1920x1080x24i +render +extension GLX -noreset" python3 $GITHUB_WORKSPACE/cobalt/black_box_tests/black_box_tests.py --platform ${{matrix.target_platform}} --config ${{matrix.config}} ${loader_args}
-          elif [[ "${{matrix.shard}}" == 'evergreen' ]]; then
-            xvfb-run -a --server-args="-screen 0 1920x1080x24i +render +extension GLX -noreset" python3 $GITHUB_WORKSPACE/cobalt/evergreen_tests/evergreen_tests.py --platform ${{matrix.target_platform}} --config ${{matrix.config}} ${loader_args} --platform_under_test linux --no-can_mount_tmpfs
-          else
-            xvfb-run -a --server-args="-screen 0 1920x1080x24i +render +extension GLX -noreset" python3 $GITHUB_WORKSPACE/starboard/tools/testing/test_runner.py --platform ${{matrix.target_platform}} --config ${{matrix.config}} -s ${{matrix.shard}} -r ${loader_args}
-          fi
+        uses: ./.github/actions/on_host_test
