@@ -2,7 +2,7 @@ name: linux
 
 on:
   pull_request:
-    types: [ready_for_review]
+    types: [ready_for_review, synchronize, labeled]
     branches: [ main ]
   push:
     branches: [ main ]
@@ -15,4 +15,3 @@ jobs:
       packages: write
     with:
       platform: $GITHUB_WORKFLOW
-
