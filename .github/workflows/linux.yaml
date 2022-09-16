@@ -13,5 +13,6 @@ jobs:
     uses: ./.github/workflows/main.yaml
     permissions:
       packages: write
+      pull-requests: write
     with:
       platform: $GITHUB_WORKFLOW
