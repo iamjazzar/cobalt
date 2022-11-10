@@ -43,7 +43,9 @@ message OnDeviceTestsCommand {
   string build_number = 11;
   string loader_platform = 12;
   string loader_config = 13;
-  optional bool dry_run = 14;
+  string version = 14;
+  optional bool dry_run = 15;
+  repeated string dimension = 16;
 }
 
 // Response from the on-device tests.

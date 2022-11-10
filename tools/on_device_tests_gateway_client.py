@@ -31,15 +31,6 @@ _TEST_TYPES = [
     'unit_test',
 ]
 
-# All platforms On-Device tests support
-_PLATFORM_TYPES = [
-    'android-arm',
-    'android-arm64',
-    'android-x86',
-    'evergreen-arm-hardfp',
-    'raspi-2',
-    'raspi-2-skia',
-]
 
 # All test configs On-Device tests support
 _TEST_CONFIGS = [
@@ -90,6 +81,9 @@ class OnDeviceTestsGatewayClient():
             build_number=args.build_number,
             loader_platform=args.loader_platform,
             loader_config=args.loader_config,
+            version=args.version,
+            dry_run=args.dry_run,
+            dimension=args.dimension or [],
         )):
 
       print(response_line.response)
@@ -125,7 +119,6 @@ def main():
       '-p',
       '--platform',
       type=str,
-      choices=_PLATFORM_TYPES,
       required=True,
       help='Platform this test was built for.')
   parser.add_argument(
@@ -180,6 +173,22 @@ def main():
       type=str,
       help='Cobalt config of the loader to run the test. Only '
       'applicable in Evergreen mode.')
+  parser.add_argument(
+      "--dry_run",
+      action="store_true",
+      help="Specifies to show what would be done without actually doing it.")
+  parser.add_argument(
+      '--dimension',
+      type=str,
+      action='append',
+      help='On-Device Tests dimension used to select a device. '
+      'Must have the following form: <dimension>=<value>.'
+      ' E.G. "release_version=regex:10.*')
+  parser.add_argument(
+      '--version',
+      type=str,
+      default='COBALT',
+      help='Cobalt version being tested.')
 
   args = parser.parse_args()
 
